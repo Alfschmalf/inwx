@@ -45,13 +45,14 @@ func main() {
 	}
 
 	p := &inwx.Provider{
-		AuthAPIToken: token,
+		AuthUsername: user,
+		AuthPassword: pass,
 	}
 
 	records, err := p.GetRecords(context.WithTimeout(context.Background(), time.Duration(15*time.Second)), zone)
 	if err != nil {
-        fmt.Printf("Error: %s", err.Error())
-        return
+		fmt.Printf("Error: %s", err.Error())
+		return
 	}
 
 	fmt.Println(records)

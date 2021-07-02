@@ -42,7 +42,6 @@ type nameserverCreateRecordRequest struct {
 	Name    string `json:"name"`
 	Content string `json:"content"`
 	TTL     int    `json:"ttl"`
-	Prio    int    `json:"prio"`
 }
 
 type nameserverCreateRecordResponse struct {
@@ -62,7 +61,6 @@ type nameserverUpdateRecordRequest struct {
 	Name    string `json:"name"`
 	Content string `json:"content"`
 	TTL     int    `json:"ttl"`
-	Prio    int    `json:"prio"`
 }
 
 type nameserverUpdateRecordResponse struct {
@@ -80,17 +78,26 @@ type genericResponse struct {
 	ResData    interface{} `json:"resData"`
 }
 
-const Url = "https://api.domrobot.com/jsonrpc/"
+func Url() string {
+	return "https://api.domrobot.com/jsonrpc/"
+	// return "https://api.ote.domrobot.com/jsonrpc/"
+}
 
-// const Url = "https://api.ote.domrobot.com/jsonrpc/"
-
-func login(ctx context.Context, username string, password string) (http.CookieJar, error) {
-	data, err := json.Marshal(&genericRequest{Method: "account.login", Params: &loginRequest{User: username, Pass: password}})
+func createGenericRequest(ctx context.Context, method string, params interface{}) (*http.Request, error) {
+	data, err := json.Marshal(&genericRequest{Method: method, Params: params})
 	if err != nil {
 		return nil, err
 	}
 
-	req, err := http.NewRequestWithContext(ctx, "POST", Url, bytes.NewBuffer(data))
+	req, err := http.NewRequestWithContext(ctx, "POST", Url(), bytes.NewBuffer(data))
+	if err != nil {
+		return nil, err
+	}
+	return req, nil
+}
+
+func login(ctx context.Context, username string, password string) (http.CookieJar, error) {
+	req, err := createGenericRequest(ctx, "account.login", &loginRequest{User: username, Pass: password})
 	if err != nil {
 		return nil, err
 	}
@@ -144,19 +151,18 @@ func doRequest(jar http.CookieJar, req *http.Request, respData interface{}) (*ge
 	return &genResp, nil
 }
 
-func getAllRecords(ctx context.Context, jar http.CookieJar, zone string) ([]libdns.Record, error) {
-	reqData, err := json.Marshal(&genericRequest{Method: "nameserver.info", Params: &nameserverInfoRequest{Domain: zone}})
+func doGenericRequest(ctx context.Context, jar http.CookieJar, method string, params interface{}, response interface{}) error {
+	req, err := createGenericRequest(ctx, method, params)
 	if err != nil {
-		return nil, err
+		return err
 	}
+	_, err = doRequest(jar, req, response)
+	return err
+}
 
-	req, err := http.NewRequestWithContext(ctx, "POST", Url, bytes.NewBuffer(reqData))
-	if err != nil {
-		return nil, err
-	}
+func getAllRecords(ctx context.Context, jar http.CookieJar, zone string) ([]libdns.Record, error) {
 	result := nameserverInfoResponse{}
-	_, err = doRequest(jar, req, &result)
-	if err != nil {
+	if err := doGenericRequest(ctx, jar, "nameserver.info", &nameserverInfoRequest{Domain: zone}, &result); err != nil {
 		return nil, err
 	}
 
@@ -183,18 +189,8 @@ func createRecord(ctx context.Context, jar http.CookieJar, zone string, r libdns
 		TTL:     int(r.TTL.Seconds()),
 	}
 
-	reqData, err := json.Marshal(&genericRequest{Method: "nameserver.createRecord", Params: reqParam})
-	if err != nil {
-		return libdns.Record{}, err
-	}
-
-	req, err := http.NewRequestWithContext(ctx, "POST", Url, bytes.NewBuffer(reqData))
-	if err != nil {
-		return libdns.Record{}, err
-	}
-	result := nameserverCreateRecordResponse{}
-	_, err = doRequest(jar, req, &result)
-	if err != nil {
+	result := &nameserverCreateRecordResponse{}
+	if err := doGenericRequest(ctx, jar, "nameserver.createRecord", reqParam, result); err != nil {
 		return libdns.Record{}, err
 	}
 
@@ -216,19 +212,8 @@ func deleteRecord(ctx context.Context, jar http.CookieJar, record libdns.Record)
 	reqParam := &nameserverDeleteRecordRequest{
 		ID: id,
 	}
-
-	reqData, err := json.Marshal(&genericRequest{Method: "nameserver.deleteRecord", Params: reqParam})
-	if err != nil {
-		return err
-	}
-
-	req, err := http.NewRequestWithContext(ctx, "POST", Url, bytes.NewBuffer(reqData))
-	if err != nil {
-		return err
-	}
-	result := nameserverDeleteRecordResponse{}
-	_, err = doRequest(jar, req, &result)
-	if err != nil {
+	result := &nameserverDeleteRecordResponse{}
+	if err := doGenericRequest(ctx, jar, "nameserver.deleteRecord", reqParam, result); err != nil {
 		return err
 	}
 
@@ -248,19 +233,8 @@ func updateRecord(ctx context.Context, jar http.CookieJar, zone string, r libdns
 		Content: r.Value,
 		TTL:     int(r.TTL.Seconds()),
 	}
-
-	reqData, err := json.Marshal(&genericRequest{Method: "nameserver.updateRecord", Params: reqParam})
-	if err != nil {
-		return libdns.Record{}, err
-	}
-
-	req, err := http.NewRequestWithContext(ctx, "POST", Url, bytes.NewBuffer(reqData))
-	if err != nil {
-		return libdns.Record{}, err
-	}
-	result := nameserverUpdateRecordResponse{}
-	_, err = doRequest(jar, req, &result)
-	if err != nil {
+	result := &nameserverUpdateRecordResponse{}
+	if err := doGenericRequest(ctx, jar, "nameserver.updateRecord", reqParam, result); err != nil {
 		return libdns.Record{}, err
 	}
 
