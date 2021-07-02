@@ -80,8 +80,9 @@ type genericResponse struct {
 	ResData    interface{} `json:"resData"`
 }
 
-// const Url = "https://api.domrobot.com/jsonrpc/"
-const Url = "https://api.ote.domrobot.com/jsonrpc/"
+const Url = "https://api.domrobot.com/jsonrpc/"
+
+// const Url = "https://api.ote.domrobot.com/jsonrpc/"
 
 func login(ctx context.Context, username string, password string) (http.CookieJar, error) {
 	data, err := json.Marshal(&genericRequest{Method: "account.login", Params: &loginRequest{User: username, Pass: password}})
