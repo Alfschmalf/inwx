@@ -1,4 +1,4 @@
-module github.com/libdns/inwx
+module github.com/Alfschmalf/inwx
 
 go 1.14
 
